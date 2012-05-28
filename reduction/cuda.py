@@ -91,6 +91,7 @@ def reduce_inplace(in_data, thread_count=4, operator='sum', dtype=None):
                     min='reduce_int_min',
                     max='reduce_int_max',)
     }
+
     test = mod.get_function(operator_func_map[dtype][operator])
 
     data = np.array(in_data, dtype=dtype)
