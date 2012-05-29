@@ -160,7 +160,8 @@ def reduce_inplace(in_data, thread_count=128, elements_per_thread=8,
     block = (thread_count, 1, 1)
     grid = (block_count, 1, 1)
 
+
     test(np.int32(len(data)), drv.InOut(data), block=block, grid=grid,
             shared=shared)
 
-    return data[:block_count]
+    return data[0]

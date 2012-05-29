@@ -1,6 +1,6 @@
 from __future__ import division
 
-from nose.tools import eq_, nottest
+from nose.tools import eq_, ok_, nottest
 import numpy as np
 
 from ..timeit import timeit
@@ -36,15 +36,12 @@ def do_cuda_global_test(size, num_threads, reduce_op, op, dtype):
 
     cuda_result, cuda_time = timeit(reduce_inplace, (data, ), dict(
             thread_count=num_threads, operator=reduce_op, dtype=dtype))
-    cuda_result, cuda_cpu_time = timeit(op, (cuda_result, ))
     cpu_result, cpu_time = timeit(op, (data, ))
 
     print 'size:%d, num_threads:%d, reduce_op: %s, dtype: %s, cpu_time: %.2g,'\
-            'cuda_time: %.2g + %.2g = %.2g' % (size, num_threads, reduce_op,
-                    dtype, cpu_time, cuda_time, cuda_cpu_time,
-                            (cuda_time + cuda_cpu_time))
-
-    eq_(cuda_result, cpu_result)
+            'cuda_time: %.2g' % (size, num_threads, reduce_op, dtype, cpu_time,
+                    cuda_time)
+    ok_(np.allclose([cuda_result], [cpu_result]))
 
 
 def test_cpu():
@@ -72,7 +69,7 @@ if CUDA_ENABLED:
     def test_cuda_global():
         for reduce_op, op in [('global_sum', sum), ('global_product', np.prod),
                 ('global_min', min), ('global_max', max),]:
-            for size_exponent in range(2, 19):
+            for size_exponent in range(2, 17):
                 size = 2 ** size_exponent
                 if size > 32 and reduce_op == 'global_product':
                     break

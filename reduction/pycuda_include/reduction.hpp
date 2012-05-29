@@ -11,6 +11,8 @@ namespace reduction {
     };
 
     extern __shared__ float sh__shared[];
+    __device__ unsigned int count = 0;
+    __shared__ bool isLastBlockDone;
 
     template <class T>
     __device__ void dump_data(int size, T *data) {
@@ -92,7 +94,9 @@ namespace reduction {
 
         for(int pass_id = 0; pass_id < passes; pass_id++) {
             int index = pass_id * blockDim.x + threadIdx.x;
-            sh__data[index] = data[block_first_id + index];
+            if(index < local_size) {
+                sh__data[index] = data[block_first_id + index];
+            }
         }
 
         syncthreads();
@@ -103,6 +107,35 @@ namespace reduction {
 
         if(threadIdx.x == 0) {
             out_data[blockIdx.x] = sh__data[0];
+
+            // Thread 0 makes sure its result is visible to
+            // all other threads
+            __threadfence();
+
+            // Thread 0 of each block signals that it is done
+            unsigned int value = atomicInc(&count, gridDim.x);
+            // Thread 0 of each block determines if its block is
+            // the last block to be done
+            isLastBlockDone = (value == (gridDim.x - 1));
+        }
+
+        syncthreads();
+
+        if (isLastBlockDone && threadIdx.x == 0) {
+            T temp = 0;
+            for(int i = 0; i < gridDim.x; i++) {
+                if(op == SUM) {
+                    temp = temp + out_data[i];
+                } else if(op == PRODUCT) {
+                    temp = temp * out_data[i];
+                } else if(op == MIN) {
+                    temp = min(temp, out_data[i]);
+                } else if(op == MAX) {
+                    temp = max(temp, out_data[i]);
+                }
+            }
+            out_data[0] = temp;
+            count = 0;
         }
     }
 }
