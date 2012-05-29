@@ -10,6 +10,7 @@ namespace reduction {
         MAX,
     };
 
+    extern __shared__ float sh__shared[];
 
     template <class T>
     __device__ void dump_data(int size, T *data) {
@@ -70,4 +71,38 @@ namespace reduction {
         return data[0];
     }
 
+    template <class T, reduce_op op>
+    __device__ void global_reduce(int size, T *data, T *out_data) {
+        int elements_per_block = ceil((float)size / gridDim.x);
+        int block_first_id = blockIdx.x * elements_per_block;
+        int local_size;
+
+        T *sh__data = (T *)&sh__shared[0];
+
+        if(blockIdx.x == gridDim.x - 1) {
+            /* This is the last thread block, so we might have fewer
+             * elements to reduce.
+             */
+            local_size = size - block_first_id;
+        } else {
+            local_size = elements_per_block;
+        }
+
+        int passes = ceil(float(local_size) / blockDim.x);
+
+        for(int pass_id = 0; pass_id < passes; pass_id++) {
+            int index = pass_id * blockDim.x + threadIdx.x;
+            sh__data[index] = data[block_first_id + index];
+        }
+
+        syncthreads();
+
+        reduce<T, op>(local_size, sh__data);
+
+        syncthreads();
+
+        if(threadIdx.x == 0) {
+            out_data[blockIdx.x] = sh__data[0];
+        }
+    }
 }
