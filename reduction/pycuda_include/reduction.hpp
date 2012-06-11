@@ -52,6 +52,7 @@ namespace reduction {
             }
         }
 
+        syncthreads();
         remaining_size = thread_count;
 
         while(remaining_size > 1) {
@@ -69,6 +70,7 @@ namespace reduction {
                 }
             }
             remaining_size = half_size;
+            syncthreads();
         }
         return data[0];
     }
