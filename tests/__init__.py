@@ -44,16 +44,6 @@ def do_cuda_global_test(size, num_threads, reduce_op, op, dtype):
     ok_(np.allclose([cuda_result], [cpu_result]))
 
 
-def test_cpu():
-    for reduce_op, op in [(lambda x, y: x + y, sum),
-            (lambda x, y: x * y, np.prod),
-            (lambda x, y: min(x, y), min),
-            (lambda x, y: max(x, y), max)]:
-        for threads in [4, 8, 16, 32, 64]:
-            for size in [4, 10, 32, 127, 263]:
-                yield do_test, size, threads, reduce_op, op, np.uint64
-
-
 if CUDA_ENABLED:
     def test_cuda_local():
         for reduce_op, op in [('sum', sum), ('product', np.prod), ('min', min),
@@ -77,3 +67,16 @@ if CUDA_ENABLED:
                     for dtype in [np.int32, np.float32]:
                         yield do_cuda_global_test, size, threads, reduce_op,\
                                 op, dtype
+
+
+
+def test_cpu():
+    for reduce_op, op in [(lambda x, y: x + y, sum),
+            (lambda x, y: x * y, np.prod),
+            (lambda x, y: min(x, y), min),
+            (lambda x, y: max(x, y), max)]:
+        for threads in [4, 8, 16, 32, 64]:
+            for size in [4, 10, 32, 127, 263]:
+                yield do_test, size, threads, reduce_op, op, np.uint64
+
+
