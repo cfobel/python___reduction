@@ -1,6 +1,7 @@
 from __future__ import division
 import math
 
+from jinja2 import Template, FileSystemLoader, Environment
 from path import path
 import numpy as np
 import pycuda.autoinit
@@ -19,103 +20,26 @@ def module_root():
     return script.parent.abspath()
 
 
+def get_include_root():
+    return module_root().joinpath('pycuda_include')
+
+
+def get_template_root():
+    return module_root().joinpath('pycuda_templates')
+
+
+def get_template_loader():
+    return FileSystemLoader(get_template_root())
+
+
+jinja_env = Environment(loader=get_template_loader())
+
+
 def reduce_inplace(in_data, thread_count=128, elements_per_thread=8,
         operator='sum', dtype=None):
-    mod = SourceModule(r'''
-    #include "reduction.hpp"
-
-    using namespace reduction;
-
-    extern "C" __global__ void reduce_float_sum(int size, float *data);
-    extern "C" __global__ void reduce_float_product(int size, float *data);
-    extern "C" __global__ void reduce_float_min(int size, float *data);
-    extern "C" __global__ void reduce_float_max(int size, float *data);
-    extern "C" __global__ void reduce_int_sum(int size, int *data);
-    extern "C" __global__ void reduce_int_product(int size, int *data);
-    extern "C" __global__ void reduce_int_min(int size, int *data);
-    extern "C" __global__ void reduce_int_max(int size, int *data);
-
-
-    __global__ void reduce_float_sum(int size, float *data) {
-        reduce<float, SUM>(size, data);
-    }
-
-
-    __global__ void reduce_float_product(int size, float *data) {
-        reduce<float, PRODUCT>(size, data);
-    }
-
-
-    __global__ void reduce_float_min(int size, float *data) {
-        reduce<float, MIN>(size, data);
-    }
-
-
-    __global__ void reduce_float_max(int size, float *data) {
-        reduce<float, MAX>(size, data);
-    }
-
-
-    __global__ void reduce_int_sum(int size, int *data) {
-        reduce<int, SUM>(size, data);
-    }
-
-
-    __global__ void reduce_int_product(int size, int *data) {
-        reduce<int, PRODUCT>(size, data);
-    }
-
-
-    __global__ void reduce_int_min(int size, int *data) {
-        reduce<int, MIN>(size, data);
-    }
-
-
-    __global__ void reduce_int_max(int size, int *data) {
-        reduce<int, MAX>(size, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_int_sum(int size, int *data) {
-        global_reduce<int, SUM>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_int_product(int size, int *data) {
-        global_reduce<int, PRODUCT>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_int_min(int size, int *data) {
-        global_reduce<int, MIN>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_int_max(int size, int *data) {
-        global_reduce<int, MAX>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_float_sum(int size, float *data) {
-        global_reduce<float, SUM>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_float_product(int size, float *data) {
-        global_reduce<float, PRODUCT>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_float_min(int size, float *data) {
-        global_reduce<float, MIN>(size, data, data);
-    }
-
-
-    extern "C" __global__ void global_reduce_float_max(int size, float *data) {
-        global_reduce<float, MAX>(size, data, data);
-    }
-    ''', no_extern_c=True, options=['-I%s/pycuda_include' % module_root()],
-            keep=True)
+    code_template = jinja_env.get_template('reduce.cu')
+    mod = SourceModule(code_template.render(), no_extern_c=True,
+            options=['-I%s' % get_include_root()], keep=True)
 
     if dtype is None:
         dtype = in_data.dtype
